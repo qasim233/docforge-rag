@@ -1,0 +1,37 @@
+# ============================================================
+# Document Research Assistant — Python Dependencies
+# Install with:  pip install -r requirements.txt
+# ============================================================
+
+# --- LangChain core + community integrations ---
+langchain>=0.3.0                  # orchestration framework (LCEL chains, runnables)
+langchain-community>=0.3.0       # community integrations (Ollama, FAISS, DuckDuckGo, etc.)
+langchain-core>=0.3.0            # base abstractions shared across LangChain
+langchain-ollama>=0.1.0          # dedicated Ollama integration for LangChain
+langchain-huggingface>=0.1.0        # dedicated HuggingFace integration for LangChain
+
+
+# --- PDF parsing ---
+pdfplumber                        # extracts text (and tables) from PDF pages
+
+# --- Embeddings ---
+sentence-transformers             # HuggingFace sentence embeddings (all-MiniLM-L6-v2)
+
+# --- Vector stores ---
+faiss-cpu                         # Facebook AI Similarity Search (local, no GPU needed)
+chromadb                          # alternative / complementary vector store
+
+# --- LLM backend ---
+ollama                            # Python client for Ollama (runs mistral locally)
+# Optional hosted providers if you swap out Ollama in llm_factory.py:
+# langchain-openai>=0.1.0          # OpenAI-compatible APIs such as xAI/Grok and OpenAI
+# langchain-anthropic>=0.1.0       # Anthropic Claude
+
+# --- Agent tool ---
+duckduckgo-search                 # DuckDuckGo search API used by LangChain tool
+
+# --- UI ---
+gradio                            # web-based chat interface
+
+# --- Utilities (pulled in as transitive deps, pinned for safety) ---
+tiktoken                          # token counting for context-window management
