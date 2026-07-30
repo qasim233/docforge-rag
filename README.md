@@ -26,7 +26,7 @@ The design is intentionally open-ended:
 ```mermaid
 flowchart TD
     U[User] --> UI[Gradio UI / app.py]
-    UI --> P[ask() in rag_pipeline.py]
+    UI --> P[ask in rag_pipeline.py]
     P --> R[FAISS Retriever]
     P --> M[MemoryManager]
     P --> L[LLM Provider Factory]
@@ -79,8 +79,8 @@ flowchart TD
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repo-url>
-cd Project1
+git clone https://github.com/qasim233/docforge-rag
+cd docforge-rag
 ```
 
 ### 2. Create and activate a virtual environment
