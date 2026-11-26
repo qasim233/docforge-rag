@@ -26,20 +26,22 @@ SUPPORTED_EXTENSIONS = {".md", ".markdown", ".txt", ".html", ".htm", ".pdf"}
 def _clean_text(text: str) -> str:
     """Normalize whitespace and HTML entities without losing paragraph breaks."""
     text = text.replace("\xa0", " ").replace("\r\n", "\n").replace("\r", "\n")
+    # Split text into lines, collapse multiple spaces/tabs into one, and trim leading/trailing whitespace
     lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
     text = "\n".join(lines)
+    # Collapse 3 or more consecutive newlines into a single blank line (2 newlines)
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
 def _clean_markdown(text: str) -> str:
-    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)
-    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
-    text = re.sub(r"`{1,3}", "", text)
-    text = re.sub(r"(?<!\w)(\*\*|__|~~|\*|_)(.*?)\1(?!\w)", r"\2", text)
-    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s+", "", text)
-    text = re.sub(r"(?m)^\s*>\s?", "", text)
-    text = re.sub(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+", "", text)
+    text = re.sub(r"!\[([^\]]*)\]\([^)]*\)", r"\1", text)  # Replace Markdown images with their alt text
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)  # Replace Markdown links with their link text
+    text = re.sub(r"`{1,3}", "", text)  # Remove inline code and code block backticks
+    text = re.sub(r"(?<!\w)(\*\*|__|~~|\*|_)(.*?)\1(?!\w)", r"\2", text)  # Strip bold, italic, and strikethrough markers
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s+", "", text)  # Remove Markdown heading hashes (# through ######)
+    text = re.sub(r"(?m)^\s*>\s?", "", text)  # Remove blockquote markers (>)
+    text = re.sub(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+", "", text)  # Strip bullet and numbered list prefixes
     return _clean_text(text)
 
 
