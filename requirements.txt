@@ -7,6 +7,7 @@
 langchain>=0.3.0                  # orchestration framework (LCEL chains, runnables)
 langchain-community>=0.3.0       # community integrations (Ollama, FAISS, DuckDuckGo, etc.)
 langchain-core>=0.3.0            # base abstractions shared across LangChain
+langchain-classic>=1.0.0          # classic agents and ensemble retrieval APIs
 langchain-ollama>=0.1.0          # dedicated Ollama integration for LangChain
 langchain-huggingface>=0.1.0        # dedicated HuggingFace integration for LangChain
 
@@ -16,10 +17,11 @@ pdfplumber                        # extracts text (and tables) from PDF pages
 
 # --- Embeddings ---
 sentence-transformers             # HuggingFace sentence embeddings (all-MiniLM-L6-v2)
+rank-bm25                          # lexical BM25 retrieval
 
 # --- Vector stores ---
 faiss-cpu                         # Facebook AI Similarity Search (local, no GPU needed)
-chromadb                          # alternative / complementary vector store
+chromadb                          # persistent vector database for document embeddings
 
 # --- LLM backend ---
 ollama                            # Python client for Ollama (runs mistral locally)

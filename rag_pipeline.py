@@ -2,7 +2,7 @@
 # rag_pipeline.py — Core RAG Logic
 # ============================================================
 # This file wires together:
-#   • The FAISS retriever  (loads the index built by ingest.py)
+#   • Hybrid retrieval    (Chroma vectors + BM25 lexical search)
 #   • The active LLM provider (default: local Ollama/gemma2)
 #   • The MemoryManager    (buffer / summary / episodic)
 #   • A prompt template    (YOUR TASK)
@@ -17,7 +17,9 @@
 # It exposes a single `ask(question)` function used by app.py.
 # ============================================================
 
-import os  # file-system path helpers
+import hashlib
+import json
+import os
 
 # --- LangChain core ---
 from langchain_core.runnables import RunnablePassthrough      # passthrough in LCEL pipes
@@ -30,8 +32,11 @@ from langchain_classic.agents import AgentExecutor, create_react_agent
 from langchain_classic.memory import ConversationBufferMemory
 
 # --- LangChain integrations ---
-from langchain_community.vectorstores import FAISS             # FAISS vector store wrapper
-from langchain_huggingface import HuggingFaceEmbeddings        # same embedder as ingest.py
+from langchain_community.retrievers import BM25Retriever
+from langchain_community.vectorstores import Chroma
+from langchain_classic.retrievers import EnsembleRetriever
+from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.tools import DuckDuckGoSearchRun
 
 # --- Shared LLM factory ---
@@ -44,36 +49,68 @@ from memory_manager import MemoryManager
 # ── PATHS ────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Must match the path used in ingest.py so we load the correct index
-VECTORSTORE_DIR = os.path.join(BASE_DIR, "vectorstore")
+CHROMA_DIR = os.path.join(BASE_DIR, "chroma")
+INDEX_MANIFEST_PATH = os.path.join(BASE_DIR, "index_manifest.json")
+EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
 
 # ── LOAD SHARED RESOURCES (run once at import time) ──────────
 
-# Embedding model — must be the SAME model used during ingestion,
-# otherwise the vector dimensions won't match and retrieval will
-# return garbage.
-embedding_model = HuggingFaceEmbeddings(
-    model_name="all-MiniLM-L6-v2",
-)
+def _load_hybrid_retriever():
+    if not os.path.isfile(INDEX_MANIFEST_PATH):
+        raise FileNotFoundError(
+            "Document indexes are missing; run ingest.py to build Chroma and BM25."
+        )
 
-# Load the FAISS index that ingest.py created and saved to disk.
-# allow_dangerous_deserialization=True is required because FAISS
-# indexes are stored as pickle files — LangChain asks you to
-# explicitly opt in to loading them.
-vectorstore = FAISS.load_local(
-    VECTORSTORE_DIR,
-    embedding_model,
-    allow_dangerous_deserialization=True,
-)
+    with open(INDEX_MANIFEST_PATH, encoding="utf-8") as manifest_file:
+        manifest = json.load(manifest_file)
+    if manifest["embedding_model"] != EMBEDDING_MODEL:
+        raise RuntimeError(
+            "The stored index uses a different embedding model; run ingest.py to rebuild it."
+        )
+    snapshot_path = os.path.join(BASE_DIR, manifest["bm25_snapshot"])
+    records = []
+    with open(snapshot_path, encoding="utf-8") as snapshot:
+        for line in snapshot:
+            if line.strip():
+                records.append(json.loads(line))
 
-# Build a retriever from the vector store.
-# search_kwargs={"k": 4} means "return the 4 most similar chunks"
-# for every query.  Tune k up for broader context, down for speed.
-retriever = vectorstore.as_retriever(
-    search_type="similarity",       # cosine similarity (default)
-    search_kwargs={"k": 4},         # number of chunks to retrieve
-)
+    fingerprint = hashlib.sha256(
+        "".join(
+            json.dumps(record, sort_keys=True, ensure_ascii=False) + "\n"
+            for record in records
+        ).encode("utf-8")
+    ).hexdigest()
+    if len(records) != manifest["chunk_count"] or fingerprint != manifest["fingerprint"]:
+        raise RuntimeError("The BM25 snapshot does not match the active index manifest")
+
+    documents = [
+        Document(page_content=record["page_content"], metadata=record["metadata"])
+        for record in records
+    ]
+    embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    vectorstore = Chroma(
+        collection_name=manifest["collection_name"],
+        embedding_function=embedding_model,
+        persist_directory=CHROMA_DIR,
+    )
+    chroma_ids = set(vectorstore._collection.get(include=["metadatas"])["ids"])
+    bm25_ids = {record["id"] for record in records}
+    if chroma_ids != bm25_ids:
+        raise RuntimeError("Chroma and BM25 indexes are out of sync; rebuild with ingest.py")
+
+    vector_retriever = vectorstore.as_retriever(
+        search_type="similarity",
+        search_kwargs={"k": 4},
+    )
+    bm25_retriever = BM25Retriever.from_documents(documents, k=4)
+    return EnsembleRetriever(
+        retrievers=[vector_retriever, bm25_retriever],
+        weights=[0.5, 0.5],
+    )
+
+
+retriever = _load_hybrid_retriever()
 
 # Instantiate the active LLM provider.
 # Default is local Ollama. To switch providers, edit llm_factory.py.

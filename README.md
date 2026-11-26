@@ -1,10 +1,10 @@
 # DocForge RAG: Open-Source Document Research Assistant
 
-An open, local-first RAG chatbot for asking questions over PDF documents. The project combines document ingestion, FAISS retrieval, conversational memory, and a pluggable LLM layer so it can be used as a learning project, a research prototype, or a starter template for a larger open-source assistant.
+An open, local-first RAG chatbot for asking questions over documents. The project combines multi-format document ingestion, hybrid Chroma and BM25 retrieval, conversational memory, and a pluggable LLM layer so it can be used as a learning project, a research prototype, or a starter template for a larger open-source assistant.
 
 ## What It Does
 
-- Ingests PDFs from the `data/` folder and builds a searchable FAISS index.
+- Ingests Markdown, text, HTML, and PDF files from `data/` and builds synchronized Chroma and BM25 indexes.
 - Answers user questions through a retrieval-augmented generation pipeline.
 - Preserves short-term chat context, summarized memory, and episodic memory.
 - Defaults to Ollama for local inference, while keeping the LLM layer easy to swap.
@@ -27,23 +27,23 @@ The design is intentionally open-ended:
 flowchart TD
     U[User] --> UI[Gradio UI / app.py]
     UI --> P[ask in rag_pipeline.py]
-    P --> R[FAISS Retriever]
+    P --> R[Hybrid Chroma + BM25 Retriever]
     P --> M[MemoryManager]
     P --> L[LLM Provider Factory]
-    R --> D[Chunked PDF Documents]
+    R --> D[Chunked Documents]
     M --> C[Short-term Buffer]
     M --> S[Summary Memory]
     M --> E[Episodic FAISS Memory]
     L --> O[Default: Ollama]
     L --> X[Optional: Grok / OpenAI / Anthropic]
-    D --> V[(vectorstore/)]
+    D --> V[(chroma/ + bm25/)]
     E --> F[(memory/)]
 ```
 
 ### Main Components
 
 `ingest.py`
-: Loads PDFs, splits them into chunks, creates embeddings, and writes the document index to `vectorstore/`.
+: Loads supported document formats, splits them into chunks, embeds them with the Hugging Face `all-MiniLM-L6-v2` model, and builds synchronized Chroma and BM25 indexes.
 
 `rag_pipeline.py`
 : Builds the question-answering flow. It retrieves relevant chunks, injects memory, formats prompts, and calls the active LLM.
@@ -67,7 +67,7 @@ flowchart TD
 
 ## Limitations
 
-- Quality depends heavily on the source PDFs and how well `pdfplumber` extracts text.
+- OpenAI embeddings require an `OPENAI_API_KEY`; PDF extraction quality depends on `pdfplumber`.
 - The default Ollama path requires a local model download and enough hardware to run it smoothly.
 - There is no authentication, multi-user access control, or deployment hardening yet.
 - Memory is session-oriented and simple by design, not a full production memory service.
@@ -108,15 +108,16 @@ pip install langchain-anthropic
 
 ### 4. Add your documents
 
-Place the PDF files you want to query inside `data/`.
+Place `.md`, `.markdown`, `.txt`, `.html`, `.htm`, or `.pdf` files you want to query inside `data/`.
 
-### 5. Build the vector store
+### 5. Build the retrieval indexes
 
 ```bash
 python ingest.py
 ```
 
-This creates the FAISS index under `vectorstore/`.
+The command creates the Chroma database under `chroma/`, a persisted BM25
+corpus under `bm25/`, and an index manifest that keeps both indexes paired.
 
 ### 6. Choose your LLM backend
 
@@ -175,10 +176,11 @@ Document_Research_Assistant/
 ├── rag_pipeline.py
 ├── requirements.txt
 ├── data/
+├── chroma/
+├── bm25/
 ├── memory/
-└── vectorstore/
 ```
 
 ## Notes On Generated Files
 
-The `memory/` and `vectorstore/` folders are generated at runtime. They can be recreated from source data, so they should normally stay out of version control.
+The `memory/`, `chroma/`, `bm25/`, and `index_manifest.json` artifacts are generated at runtime. They can be recreated from source data, so they should normally stay out of version control.

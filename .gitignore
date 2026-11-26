@@ -23,6 +23,9 @@ env/
 data/**
 memory/
 vectorstore/
+chroma/
+bm25/
+index_manifest.json
 
 # Editor and OS files
 .vscode/
