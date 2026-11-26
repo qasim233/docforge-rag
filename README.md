@@ -42,8 +42,14 @@ flowchart TD
 
 ### Main Components
 
+`document_loader.py`
+: Loads Markdown, text, HTML, and PDF inputs and persists raw and normalized documents.
+
+`chunking.py`
+: Implements the fixed, structure-aware, and semantic splitters, near-duplicate filtering, chunk metadata, and BM25 corpus preparation.
+
 `ingest.py`
-: Loads supported document formats, splits them into chunks, embeds them with the Hugging Face `all-MiniLM-L6-v2` model, and builds synchronized Chroma and BM25 indexes.
+: Orchestrates document loading, chunking, embedding with Hugging Face `all-MiniLM-L6-v2`, and synchronized Chroma/BM25 index creation.
 
 `rag_pipeline.py`
 : Builds the question-answering flow. It retrieves relevant chunks, injects memory, formats prompts, and calls the active LLM.
@@ -170,6 +176,8 @@ If you publish this publicly, consider adding:
 ```text
 Document_Research_Assistant/
 ├── app.py
+├── chunking.py
+├── document_loader.py
 ├── ingest.py
 ├── llm_factory.py
 ├── memory_manager.py
