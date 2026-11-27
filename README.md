@@ -6,6 +6,8 @@ An open, local-first RAG chatbot for asking questions over documents. The projec
 
 - Ingests Markdown, text, HTML, and PDF files from `data/` and builds synchronized Chroma and BM25 indexes.
 - Retrieves dense and BM25 results, fuses ranks with configurable weighted RRF, then reranks the top 20 candidates to keep the top 5.
+- Generates answers grounded in numbered source chunks and flags citations that an LLM judge finds unsupported.
+- Reports retrieval, citation-coverage, and completeness confidence scores; returns an evidence summary instead of generating when retrieval confidence is low.
 - Answers user questions through a retrieval-augmented generation pipeline.
 - Preserves short-term chat context, summarized memory, and episodic memory.
 - Defaults to Ollama for local inference, while keeping the LLM layer easy to swap.
@@ -27,10 +29,10 @@ The design is intentionally open-ended:
 ```mermaid
 flowchart TD
     U[User] --> UI[Gradio UI / app.py]
-    UI --> P[ask in rag_pipeline.py]
-    P --> R[Hybrid Chroma + BM25 Retriever]
+    UI --> P[generation.answer]
+    P --> R[retrieval.search + rerank]
     P --> M[MemoryManager]
-    P --> L[LLM Provider Factory]
+    P --> L[generation.llm]
     R --> D[Chunked Documents]
     M --> C[Short-term Buffer]
     M --> S[Summary Memory]
@@ -43,19 +45,21 @@ flowchart TD
 
 ### Main Components
 
-`document_loader.py`: Loads Markdown, text, HTML, and PDF inputs and persists raw and normalized documents.
+`app/config.py` and `app/deps.py`: Load environment-backed settings and provide cached model and memory dependencies.
 
-`chunking.py`: Implements the fixed, structure-aware, and semantic splitters, near-duplicate filtering, chunk metadata, and BM25 corpus preparation.
+`ingestion/extract/loader.py`: Loads Markdown, text, HTML, and PDF inputs and persists raw and normalized documents.
 
-`ingest.py`: Orchestrates document loading, chunking, embedding with Hugging Face `all-MiniLM-L6-v2`, and synchronized Chroma/BM25 index creation.
+`ingestion/chunk.py`, `ingestion/embed.py`, and `ingestion/worker.py`: Split and deduplicate text, prepare embedding metadata, and build synchronized indexes.
 
-`rag_pipeline.py`: Builds the question-answering flow. It retrieves relevant chunks, injects memory, formats prompts, and calls the active LLM.
+`retrieval/search.py`, `retrieval/rerank.py`, and `retrieval/context.py`: Provide dense and BM25 retrieval, weighted RRF, cross-encoder reranking, and numbered context blocks.
 
-`memory_manager.py`: Maintains three memory layers: recent chat history, compressed summary memory, and long-term episodic retrieval.
+`generation/answer.py` and `generation/prompts/grounded_v1.py`: Generate grounded responses, verify citations, calculate confidence, and handle insufficient evidence.
 
-`llm_factory.py`: Central place to choose the LLM backend. Ollama is the default, but commented examples are included for alternative providers.
+`storage/vector_store.py`: Persists Chroma vectors and the rebuildable BM25 corpus.
 
-`app.py`: Launches the Gradio chat interface.
+`app.py` launches the Gradio UI. `ingest.py` remains the CLI entry point, while `rag_pipeline.py`, `document_loader.py`, `chunking.py`, and `llm_factory.py` are compatibility exports for the modular code.
+
+The HTTP API/queue, pgvector backend, evaluation harness, tracing, migrations, and automated test suite in the broader target architecture are not present in the existing application and were intentionally not scaffolded.
 
 ## Strengths
 
@@ -164,8 +168,6 @@ If you publish this publicly, consider adding:
 ## Suggested Roadmap
 
 - Add streaming responses in the UI.
-- Add citations for every answer.
-- Make the provider selection fully environment-driven.
 - Add unit tests for ingestion, memory, and prompt construction.
 - Add a lightweight API server so the UI can be swapped independently.
 - Add provider adapters for more local and hosted models.
@@ -174,18 +176,34 @@ If you publish this publicly, consider adding:
 
 ```text
 Document_Research_Assistant/
+├── app/
+│   ├── config.py
+│   └── deps.py
+├── generation/
+│   ├── prompts/
+│   │   └── grounded_v1.py
+│   ├── answer.py
+│   └── llm.py
+├── ingestion/
+│   ├── extract/
+│   │   ├── html.py
+│   │   ├── loader.py
+│   │   ├── markdown.py
+│   │   ├── pdf.py
+│   │   └── plain_text.py
+│   ├── chunk.py
+│   ├── embed.py
+│   └── worker.py
+├── retrieval/
+│   ├── context.py
+│   ├── rerank.py
+│   └── search.py
+├── storage/
+│   └── vector_store.py
 ├── app.py
-├── chunking.py
-├── document_loader.py
 ├── ingest.py
-├── llm_factory.py
 ├── memory_manager.py
-├── rag_pipeline.py
-├── requirements.txt
-├── data/
-├── chroma/
-├── bm25/
-├── memory/
+└── requirements.txt
 ```
 
 ## Notes On Generated Files

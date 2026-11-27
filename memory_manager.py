@@ -73,15 +73,14 @@ from langchain_huggingface import HuggingFaceEmbeddings    # sentence-transforme
 from langchain_community.vectorstores import FAISS                  # FAISS vector store wrapper                        # universal document wrapper
 
 # --- Shared LLM factory ---
-from llm_factory import build_llm
+from generation.llm import build_llm
+from app.config import settings
 
 
 # ── PATHS ────────────────────────────────────────────────────
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 # Dedicated folder for the episodic-memory FAISS index
 # (separate from the document vectorstore in vectorstore/)
-MEMORY_DIR = os.path.join(BASE_DIR, "memory")
+MEMORY_DIR = str(settings.memory_dir)
 
 
 class MemoryManager:
@@ -102,7 +101,7 @@ class MemoryManager:
     # so BUFFER_K=5 means the last 10 messages are retained.
     BUFFER_K = 5
 
-    def __init__(self):
+    def __init__(self, llm=None, embeddings=None):
         """
         Initialize all memory backends.
         The active LLM is needed by summary memory to generate
@@ -116,12 +115,12 @@ class MemoryManager:
         # LLM used by summary memory to compress conversations.
         # Keep this in sync with the main chain by using the
         # shared provider factory.
-        self.llm = build_llm()
+        self.llm = llm or build_llm()
 
         # Embedding model used by episodic memory to encode exchanges.
         # Same model as ingest.py so representations are compatible.
-        self.embeddings = HuggingFaceEmbeddings(
-            model_name="all-MiniLM-L6-v2",
+        self.embeddings = embeddings or HuggingFaceEmbeddings(
+            model_name=settings.embedding_model,
         )
 
         # --- Internal turn counter ---

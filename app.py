@@ -3,8 +3,8 @@
 # ============================================================
 # This file creates a web-based chat interface using Gradio.
 # It connects the UI to the RAG pipeline so users can:
-#   • Ask questions about their Aerux annual reports
-#   • Get AI-powered answers grounded in the PDF documents
+#   • Ask questions about their documents
+#   • Get AI-powered answers grounded in retrieved document chunks
 #   • Have a multi-turn conversation with memory
 #
 # Run with:  python app.py
@@ -13,8 +13,7 @@
 
 import gradio as gr                         # web UI framework
 
-# Import the public API from our RAG pipeline module
-from rag_pipeline import ask, reset_memory
+from generation.answer import ask, reset_memory
 
 
 # ── CHAT HANDLER ─────────────────────────────────────────────
@@ -40,6 +39,6 @@ def chat_handler(message: str, history: list) -> str:
 # ── GRADIO UI ────────────────────────────────────────────────
 gr.ChatInterface(
     fn=chat_handler,
-    title="Aerux Annual Report Chatbot",
-    description="Ask questions about Aerux's annual reports. The AI will provide answers grounded in the PDF documents.",
+    title="DocForge Document Assistant",
+    description="Ask questions about your documents. Answers include evidence citations and confidence scores.",
 ).launch()
