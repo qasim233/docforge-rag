@@ -5,6 +5,7 @@ An open, local-first RAG chatbot for asking questions over documents. The projec
 ## What It Does
 
 - Ingests Markdown, text, HTML, and PDF files from `data/` and builds synchronized Chroma and BM25 indexes.
+- Retrieves dense and BM25 results, fuses ranks with configurable weighted RRF, then reranks the top 20 candidates to keep the top 5.
 - Answers user questions through a retrieval-augmented generation pipeline.
 - Preserves short-term chat context, summarized memory, and episodic memory.
 - Defaults to Ollama for local inference, while keeping the LLM layer easy to swap.
@@ -42,26 +43,19 @@ flowchart TD
 
 ### Main Components
 
-`document_loader.py`
-: Loads Markdown, text, HTML, and PDF inputs and persists raw and normalized documents.
+`document_loader.py`: Loads Markdown, text, HTML, and PDF inputs and persists raw and normalized documents.
 
-`chunking.py`
-: Implements the fixed, structure-aware, and semantic splitters, near-duplicate filtering, chunk metadata, and BM25 corpus preparation.
+`chunking.py`: Implements the fixed, structure-aware, and semantic splitters, near-duplicate filtering, chunk metadata, and BM25 corpus preparation.
 
-`ingest.py`
-: Orchestrates document loading, chunking, embedding with Hugging Face `all-MiniLM-L6-v2`, and synchronized Chroma/BM25 index creation.
+`ingest.py`: Orchestrates document loading, chunking, embedding with Hugging Face `all-MiniLM-L6-v2`, and synchronized Chroma/BM25 index creation.
 
-`rag_pipeline.py`
-: Builds the question-answering flow. It retrieves relevant chunks, injects memory, formats prompts, and calls the active LLM.
+`rag_pipeline.py`: Builds the question-answering flow. It retrieves relevant chunks, injects memory, formats prompts, and calls the active LLM.
 
-`memory_manager.py`
-: Maintains three memory layers: recent chat history, compressed summary memory, and long-term episodic retrieval.
+`memory_manager.py`: Maintains three memory layers: recent chat history, compressed summary memory, and long-term episodic retrieval.
 
-`llm_factory.py`
-: Central place to choose the LLM backend. Ollama is the default, but commented examples are included for alternative providers.
+`llm_factory.py`: Central place to choose the LLM backend. Ollama is the default, but commented examples are included for alternative providers.
 
-`app.py`
-: Launches the Gradio chat interface.
+`app.py`: Launches the Gradio chat interface.
 
 ## Strengths
 
@@ -73,7 +67,7 @@ flowchart TD
 
 ## Limitations
 
-- OpenAI embeddings require an `OPENAI_API_KEY`; PDF extraction quality depends on `pdfplumber`.
+- Used HuggingFace embedding because OpenAI embeddings require an `OPENAI_API_KEY`; PDF extraction quality depends on `pdfplumber`.
 - The default Ollama path requires a local model download and enough hardware to run it smoothly.
 - There is no authentication, multi-user access control, or deployment hardening yet.
 - Memory is session-oriented and simple by design, not a full production memory service.
@@ -115,6 +109,11 @@ pip install langchain-anthropic
 ### 4. Add your documents
 
 Place `.md`, `.markdown`, `.txt`, `.html`, `.htm`, or `.pdf` files you want to query inside `data/`.
+
+Hybrid retrieval defaults to dense/sparse RRF weights of `0.7`/`0.3` and uses
+`cross-encoder/ms-marco-MiniLM-L-6-v2` for reranking. Configure weights with
+`DOCFORGE_DENSE_WEIGHT` and `DOCFORGE_SPARSE_WEIGHT`, or choose a different
+cross-encoder with `DOCFORGE_RERANKER_MODEL`.
 
 ### 5. Build the retrieval indexes
 

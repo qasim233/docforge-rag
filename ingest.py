@@ -57,6 +57,7 @@ def create_indexes(chunks: list[Document]) -> None:
             ids=chunk_ids,
             collection_name=collection_name,
             persist_directory=CHROMA_DIR,
+            collection_metadata={"hnsw:space": "cosine"},
         )
         bm25_future = executor.submit(
             write_bm25_snapshot, records, indexed_chunks, bm25_snapshot
@@ -72,6 +73,7 @@ def create_indexes(chunks: list[Document]) -> None:
         {
             "version": index_version,
             "collection_name": collection_name,
+            "distance_metric": "cosine",
             "bm25_snapshot": os.path.relpath(bm25_snapshot, BASE_DIR),
             "embedding_model": EMBEDDING_MODEL,
             "chunk_count": len(chunk_ids),
